@@ -85,7 +85,8 @@
         prev-commit-file (workdir (str (name nm) ".status"))
         pcommit (when (fs/exists? prev-commit-file)
                       (slurp prev-commit-file))]
-    (when-not (= commit pcommit)
+    (when (or (not (= commit pcommit))
+              (not (get @state nm)))
       (println :reload nm pcommit :=> commit)
       (spit prev-commit-file commit)
       (restart-docs state nm cfg))))
