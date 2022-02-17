@@ -6,7 +6,7 @@
          :enter       (do)
          :leave       (do)
 
-         run (do (gitopa/run))
+         run (do (gitopa/run (or (first *command-line-args*) "sites.edn")))
          
          
 
