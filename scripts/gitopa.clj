@@ -1,6 +1,5 @@
 (ns gitopa
   (:require [clojure.java.io :as io]
-            [clojure.java.shell :as shell]
             [clojure.edn :as edn]
             [babashka.fs :as fs]
             [clojure.string :as str])
@@ -49,7 +48,9 @@
     (.start prc)))
 
 (defn init-env [cfg]
-  {:GIT_SSH_COMMAND (format "ssh -i %s -o IdentitiesOnly=yes -o StrictHostKeyChecking=no" (path (:key cfg)))})
+  (if (:key cfg)
+    {:GIT_SSH_COMMAND (format "ssh -i %s -o IdentitiesOnly=yes -o StrictHostKeyChecking=no" (path (:key cfg)))}
+    {}))
 
 (defn init-repo [nm cfg]
   (let [env (init-env cfg)]
@@ -119,46 +120,45 @@ server {
                      (str/join "\n"))]
     (spit (path "workdir/nginx.config") (str "http {" servers "}"))))
 
-(defn start []
+(defn do-loop [state cfg-file]
+  (loop []
+    (when-not (:stop @state)
+      (let [cfg (edn/read-string (slurp (or cfg-file "sites.edn")))]
+        (generate-nginx cfg)
+        (reconcile state cfg)
+        (Thread/sleep (:timeout cfg)))
+      (recur))))
+
+(defn start [cfg-file]
   (println "Starting...")
-  (let [timeout 5000
-        state (atom {})]
+  (let [state (atom {})]
     (when-not (fs/exists? (path "workdir"))
       (fs/create-dir (path "workdir")))
     (future 
-      (loop []
-        (when-not (:stop @state)
-          (let [cfg (edn/read-string (slurp "sites.edn"))]
-            (reconcile state cfg))
-          (Thread/sleep timeout)
-          (recur)))
+      (do-loop state cfg-file)
       (println "Stop"))
     state))
 
-(defn run []
-  (let [timeout 5000
-        state (atom {})]
+(defn stop [state]
+  (swap! state assoc :stop true))
+
+(defn run [cfg-file]
+  (let [state (atom {})]
     (when-not (fs/exists? (path "workdir"))
       (fs/create-dir (path "workdir")))
-    (loop []
-      (when-not (:stop @state)
-        (let [cfg (edn/read-string (slurp "sites.edn"))]
-          (reconcile state cfg))
-        (Thread/sleep timeout)
-        (recur)))))
+    (do-loop state cfg-file)))
 
-(defn -main [& _]
-  (start))
 
 (comment
 
-  (def srv (start))
-  (swap! srv assoc :stop true)
+  (def srv (start "sites.edn"))
+
+  (stop srv)
 
   (def opts (edn/read-string (slurp "sites.edn")))
 
   (generate-nginx opts)
   
-  (bean (:hskb @srv))
+  (bean @srv)
 
   )

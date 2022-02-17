@@ -1,12 +1,12 @@
-{:sites {:hskb    {:repo "git@github.com:HealthSamurai/knowledge-base.git"
+{:sites {:samurai {:repo "git@github.com:HealthSamurai/knowledge-base.git"
                    :key "keys/id_rsa"
                    :port 4477
                    :host "samurai.zendoc.me"
                    :exec ["clojure" "-M:prod" "4477"]}
 
-         :fhir-ru {:repo "git@github.com:fhir-ru/core.git"
-                   :key "keys/id_rsa"
-                   :port 8081
+         :fhir-ru {:repo "https://github.com/fhir-ru/zendoc"
+                   :port 3333
                    :host "fhir-ru.zendoc.me"
-                   :exec ["clojure" "-M:prod" "4477"]}}
+                   :exec ["clojure" "-M:run" "3333"]}}
+ :timeout 5000
  :reload-cmd []}
