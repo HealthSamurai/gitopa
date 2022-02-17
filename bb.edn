@@ -1,0 +1,14 @@
+{:deps  {cprop/cprop {:mvn/version "0.1.18"}}
+ :paths ["scripts"]
+ :tasks {:requires    ([gitopa])
+         ;; helpers and constants
+         :init        (do)
+         :enter       (do)
+         :leave       (do)
+
+         run (do (gitopa/run))
+         
+         
+
+         }}
+
