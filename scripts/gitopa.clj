@@ -105,7 +105,7 @@
   (format
    "
 server {
-  listen 80
+  listen 80;
   server_name %s;
   location / {
       proxy_set_header Host $host;
@@ -115,11 +115,13 @@ server {
 }
 " (:host cfg) (:port cfg)))
 
+(def events "\nevents {\n worker_connections  4096;\n}\n")
 (defn generate-nginx [opts]
   (let [servers (->> (:sites opts)
                      (mapv (fn [[nm cfg]] (service-nginx nm cfg)))
                      (str/join "\n"))]
-    (spit (path "workdir/nginx.config") (str "http {" servers "}"))))
+    (spit (path "workdir/nginx.config")
+          (str events "\nhttp {" servers "}"))))
 
 (defn do-loop [state cfg-file]
   (loop []
