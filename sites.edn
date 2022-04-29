@@ -1,5 +1,5 @@
 {:sites {:samurai {:repo "git@github.com:HealthSamurai/knowledge-base.git"
-                   :key "keys/id_rsa"
+                   :key "/root/.ssh/kb"
                    :port 4477
                    :host "samurai.zendoc.me"
                    :exec ["clojure" "-M:prod" "4477"]}

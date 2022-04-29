@@ -49,7 +49,10 @@
 
 (defn init-env [cfg]
   (if (:key cfg)
-    {:GIT_SSH_COMMAND (format "ssh -i %s -o IdentitiesOnly=yes -o StrictHostKeyChecking=no" (path (:key cfg)))}
+    {:GIT_SSH_COMMAND (format "ssh -i %s -o IdentitiesOnly=yes -o StrictHostKeyChecking=no" 
+                              (if (str/starts-with? (:key cfg) "/")
+                                (:key cfg)
+                                (path (:key cfg))))}
     {}))
 
 (defn init-repo [nm cfg]
