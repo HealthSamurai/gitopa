@@ -1,5 +1,5 @@
 {:sites {:samurai {:repo "git@github.com:HealthSamurai/knowledge-base.git"
-                   :key "keys/id_rsa"
+                   :key "/root/.ssh/kb"
                    :port 4477
                    :host "samurai.zendoc.me"
                    :envs {:GOOGLE_APPLICATION_CREDENTIALS "keys/aidbox2-205511-be667ecd08a2.json"}
