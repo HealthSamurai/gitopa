@@ -1,2 +1,5 @@
 workdir
 keys
+.nrepl-port
+.cpcache
+keys

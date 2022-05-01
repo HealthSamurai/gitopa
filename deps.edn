@@ -1,0 +1,14 @@
+{:paths   ["src"]
+
+ :deps    {org.clojure/clojure     {:mvn/version "1.10.3"}
+           http-kit/http-kit       {:mvn/version "2.5.3"}
+           cheshire/cheshire       {:mvn/version "5.10.1"}}
+
+ :aliases
+ {:cider/nrepl
+  {:extra-paths []
+   :extra-deps  {nrepl/nrepl                    {:mvn/version "0.8.3"}
+                 cider/cider-nrepl              {:mvn/version "LATEST"}
+                 refactor-nrepl/refactor-nrepl  {:mvn/version "2.5.1"}}
+   :jvm-opts    ["-XX:-OmitStackTraceInFastThrow"]
+   :main-opts   ["-m" "nrepl.cmdline" "-b" "0.0.0.0" "--middleware" "[refactor-nrepl.middleware/wrap-refactor,cider.nrepl/cider-middleware]"]}}}

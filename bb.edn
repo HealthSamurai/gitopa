@@ -6,6 +6,9 @@
          :enter       (do)
          :leave       (do)
 
+         repl         {:doc  "Run Clojure repl for Emacs with cider"
+                       :task (clojure "-M:cider/nrepl")}
+
          run (do (gitopa/run (or (first *command-line-args*) "sites.edn")))
          
          
