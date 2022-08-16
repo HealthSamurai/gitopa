@@ -8,6 +8,11 @@
          :fhir-ru {:repo "https://github.com/fhir-ru/zendoc"
                    :port 3333
                    :host "fhir-ru.zendoc.me"
-                   :exec ["clojure" "-M:run" "3333"]}}
+                   :exec ["clojure" "-M:run" "3333"]}
+
+         :fhir-ru-mirror {:repo "https://github.com/fhir-ru/zendoc"
+                          :port 3344
+                          :host "fhir.ru"
+                          :exec ["clojure" "-M:run" "3344"]}}
  :timeout 5000
  :reload-cmd []}
