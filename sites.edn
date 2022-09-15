@@ -14,5 +14,6 @@
                           :port 3344
                           :host "fhir.ru"
                           :exec ["clojure" "-M:run" "3344"]}}
+ :hook-listener-port 3742
  :timeout 5000
  :reload-cmd []}

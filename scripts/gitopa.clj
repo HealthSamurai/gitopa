@@ -2,7 +2,8 @@
   (:require [clojure.java.io :as io]
             [clojure.edn :as edn]
             [babashka.fs :as fs]
-            [clojure.string :as str])
+            [clojure.string :as str]
+            [org.httpkit.server :as http-kit])
   (:import [java.lang ProcessBuilder]))
 
 (def home (System/getProperty "user.dir"))
@@ -78,7 +79,9 @@
   (when-let [prc (get @state nm)]
     (println :stop nm)
     (.destroy prc))
-  (let [prc (proc {:exec (:exec cfg) :dir (workdir nm)})]
+  (let [prc (proc {:exec (:exec cfg) :dir (workdir nm)
+                   :env (merge {:hook-site-name (name nm)}
+                               (select-keys cfg [:hook-listener-port]))})]
     (.inheritIO prc)
     (println :start nm)
     (swap! state assoc nm (.start prc))))
@@ -94,15 +97,17 @@
       (spit prev-commit-file commit)
       (restart-docs state nm cfg))))
 
+(def lock (Object.))
 (defn reconcile [state {cfgs :sites}]
-  (doseq [[nm cfg] cfgs]
-    (try 
-      (when-not (fs/exists? (workdir (name nm)))
-        (init-repo nm cfg))
-      (update-repo nm cfg)
-      (restart state nm cfg)
-      (catch Exception e
-        (println :error nm (.getMessage e))))))
+  (locking lock
+    (doseq [[nm cfg] cfgs]
+      (try
+        (when-not (fs/exists? (workdir (name nm)))
+          (init-repo nm cfg))
+        (update-repo nm cfg)
+        (restart state nm cfg)
+        (catch Exception e
+          (println :error nm (.getMessage e)))))))
 
 (defn service-nginx [nm cfg]
   (format
@@ -126,27 +131,49 @@ server {
     (spit (path "workdir/nginx.config")
           (str events "\nhttp {" servers "}"))))
 
-(defn do-loop [state cfg-file]
+(defn do-loop [state cfg]
   (loop []
     (when-not (:stop @state)
-      (let [cfg (edn/read-string (slurp (or cfg-file "sites.edn")))]
-        (generate-nginx cfg)
-        (reconcile state cfg)
-        (Thread/sleep (:timeout cfg)))
+      (generate-nginx cfg)
+      (reconcile state cfg)
+      (Thread/sleep (:timeout cfg))
       (recur))))
+
+(defn start-hook-server
+  [state cfg]
+  (when-let [port (:hook-listener-port cfg)]
+    (let [opts {:port port}
+          server (http-kit/run-server (fn [{:keys [uri] :as req}]
+                                        (println :query-on-uri  uri)
+                                        (let [site-key (-> uri (subs 1) keyword)
+                                              cfg-selected (update cfg :sites select-keys [site-key])]
+                                          (if (seq (:sites cfg-selected))
+                                            (do (reconcile state cfg-selected)
+                                                {:status 200})
+                                            {:status 404})))
+                                      opts)]
+      (println :start-hook-server opts)
+      (swap! state assoc :hook-server server))))
+
+
 
 (defn start [cfg-file]
   (println "Starting...")
-  (let [state (atom {})]
+  (let [state (atom {})
+        cfg (edn/read-string (slurp (or cfg-file "sites.edn")))]
     (when-not (fs/exists? (path "workdir"))
       (fs/create-dir (path "workdir")))
-    (future 
-      (do-loop state cfg-file)
-      (println "Stop"))
+    (future
+      (start-hook-server state cfg)
+      (do-loop state cfg)
+      (println :stop))
     state))
 
 (defn stop [state]
-  (swap! state assoc :stop true))
+  (swap! state assoc :stop true)
+  (when-let [srv (-> @state :hook-server)]
+    (srv)
+    (println :hook-server-stopped)))
 
 (defn run [cfg-file]
   (let [state (atom {})]
