@@ -44,10 +44,6 @@
     (when-not (= 0 (:status res))
       (throw (Exception. ^String (str  (:stderr res)))))))
 
-(defn run [opts]
-  (let [prc (proc opts)]
-    (.start prc)))
-
 (defn init-env [cfg]
   (if (:key cfg)
     {:GIT_SSH_COMMAND (format "ssh -i %s -o IdentitiesOnly=yes -o StrictHostKeyChecking=no" 
@@ -86,28 +82,47 @@
     (println :start nm)
     (swap! state assoc nm (.start prc))))
 
+(defn changed-files [nm cfg prev-comm cur-comm]
+  (let [env (init-env cfg)]
+    (-> (exec {:exec ["git" "diff" "--name-only" prev-comm cur-comm] :env env :dir (workdir nm)})
+        (get-in [:stdout]))))
+
 (defn restart [state nm cfg]
   (let [commit (current-commit nm cfg)
         prev-commit-file (workdir (str (name nm) ".status"))
         pcommit (when (fs/exists? prev-commit-file)
-                      (slurp prev-commit-file))]
-    (when (or (not (= commit pcommit))
-              (not (get @state nm)))
-      (println :reload nm pcommit :=> commit)
-      (spit prev-commit-file commit)
-      (restart-docs state nm cfg))))
+                  (slurp prev-commit-file))
+        first-start? (not (get @state nm))
+        update? (not (= commit pcommit))
+        has-not-ignored-changed-files?
+        (when (and update? (not first-start?))
+          (->> (changed-files nm cfg pcommit commit)
+               (remove (fn [f] (when (:re-ignore-changes cfg)
+                                 (re-find (re-pattern (:re-ignore-changes cfg)) f))))
+               seq))]
+    (when (or first-start? update?)
+      (if (or first-start? has-not-ignored-changed-files?)
+        (do (println :reload nm pcommit :=> commit)
+            (spit prev-commit-file commit)
+            (restart-docs state nm cfg))
+
+        (do (println :only-ignored-files-changed :no-restart)
+            (spit prev-commit-file commit)
+            #_"TODO: send signal to service (localhost:<port>/_reload-files) here")))))
+
 
 (def lock (Object.))
-(defn reconcile [state {cfgs :sites}]
+(defn reconcile [state {cfgs :sites :as cfg}]
   (locking lock
-    (doseq [[nm cfg] cfgs]
+    (doseq [[nm scfg] cfgs
+            :let [cfg (merge cfg scfg)]]
       (try
         (when-not (fs/exists? (workdir (name nm)))
           (init-repo nm cfg))
         (update-repo nm cfg)
         (restart state nm cfg)
         (catch Exception e
-          (println :error nm (.getMessage e)))))))
+          (println :error nm e))))))
 
 (defn service-nginx [nm cfg]
   (format
@@ -142,6 +157,7 @@ server {
 (defn start-hook-server
   [state cfg]
   (when-let [port (:hook-listener-port cfg)]
+    (println :starting-hook-server-on port)
     (let [opts {:port port}
           server (http-kit/run-server (fn [{:keys [uri] :as req}]
                                         (println :query-on-uri  uri)
@@ -155,8 +171,6 @@ server {
       (println :start-hook-server opts)
       (swap! state assoc :hook-server server))))
 
-
-
 (defn start [cfg-file]
   (println "Starting...")
   (let [state (atom {})
@@ -164,9 +178,11 @@ server {
     (when-not (fs/exists? (path "workdir"))
       (fs/create-dir (path "workdir")))
     (future
-      (start-hook-server state cfg)
-      (do-loop state cfg)
-      (println :stop))
+      (try (start-hook-server state cfg)
+           (do-loop state cfg)
+           (println :stop)
+           (catch Exception e
+             (println :exception-on-start e))))
     state))
 
 (defn stop [state]
@@ -176,10 +192,12 @@ server {
     (println :hook-server-stopped)))
 
 (defn run [cfg-file]
-  (let [state (atom {})]
+  (let [state (atom {})
+        cfg (edn/read-string (slurp (or cfg-file "sites.edn")))]
     (when-not (fs/exists? (path "workdir"))
       (fs/create-dir (path "workdir")))
-    (do-loop state cfg-file)))
+    (start-hook-server state cfg)
+    (do-loop state cfg)))
 
 
 (comment

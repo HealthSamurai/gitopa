@@ -2,6 +2,7 @@
                    :key "/root/.ssh/kb"
                    :port 4477
                    :host "samurai.zendoc.me"
+                   :re-ignore-changes "docs/.*"
                    :envs {:GOOGLE_APPLICATION_CREDENTIALS "keys/aidbox2-205511-be667ecd08a2.json"}
                    :exec ["clojure" "-M:prod" "4477"]}
 
