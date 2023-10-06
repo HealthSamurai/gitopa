@@ -149,7 +149,7 @@ server {
 (defn do-loop [state cfg]
   (loop []
     (when-not (:stop @state)
-      (generate-nginx cfg)
+      #_(generate-nginx cfg)
       (reconcile state cfg)
       (Thread/sleep (:timeout cfg))
       (recur))))
