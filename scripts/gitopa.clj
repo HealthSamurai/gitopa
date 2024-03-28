@@ -158,7 +158,8 @@ server {
   [state cfg]
   (when-let [port (:hook-listener-port cfg)]
     (println :starting-hook-server-on port)
-    (let [opts {:port port}
+    (let [opts {:port port
+                :ip (or (:hook-listener-ip cfg) "0.0.0.0")}
           server (http-kit/run-server (fn [{:keys [uri] :as req}]
                                         (println :query-on-uri  uri)
                                         (let [site-key (-> uri (subs 1) keyword)
